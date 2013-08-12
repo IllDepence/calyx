@@ -13,18 +13,33 @@ char *api_request(char *url, int meth, char *params);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
+	/* read config file */
 	read_conf_file();
-	printf("mail: %s\n", MAIL);
-	printf("pass: %s\n", PASS);
 
+	/* authenticate */
 	char *url = "https://hummingbirdv1.p.mashape.com/users/authenticate";
-	//char *url = "https://hummingbirdv1.p.mashape.com/anime/steins-gate";
-	char *content = NULL;
+	char *auth_token = NULL;
 	char param_buf[128];
-	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS); /* this magically appends "(null)" to the end of the string. therefor the appended & fuck strings in C */
-	content = api_request(url, 1, param_buf);
+	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS); /* this magically appends "(null)" to the end of the string. therefore the appended & -- fuck strings in C */
+	auth_token = api_request(url, 1, param_buf);
+	int atlen = strlen(auth_token) - 2;
+	int i;
+	char stripped_auth_token[atlen];
+	for(i=1; i<atlen+1; i++) {
+		stripped_auth_token[i-1] = auth_token[i];
+		}
+	stripped_auth_token[atlen] = '\0';
 
-	printf("%s", content);
+	//printf("\nauth_token:\n%s", stripped_auth_token);
+
+	/* get watching list */
+	url = "https://hummingbirdv1.p.mashape.com/users/me/library";
+	char *json_list = NULL;
+	sprintf(param_buf, "id=me&status=currently-watching&auth_token=%s&", stripped_auth_token); /* this magically appends "(null)" to the end of the string. therefore the appended & -- fuck strings in C */
+	json_list = api_request(url, 0, param_buf);
+
+	printf(">%d<\n", strlen(json_list));
+	printf("\njson_list:\n>%s<", json_list);
 
 	return 0;
 	}
@@ -97,26 +112,38 @@ char *api_request(char *url, int meth, char *params) {
 	chunk = curl_slist_append(chunk, header);
 	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, chunk);
 
-	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 
 	if(meth) { /* POST */
+		curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, params);
 		}
 	else { /* GET */
+		char param_url[100];
+		sprintf(param_url, url);
+		strcat(param_url, "?");
+		strcat(param_url, params);
+		curl_easy_setopt(curl_handle, CURLOPT_URL, param_url);
 		curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1);
 		}
+
 
 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback_func); /* callback function */
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &response); /* pointer to callback parameter */
+	CURLcode res;
 	curl_easy_perform(curl_handle); /* perform the request */
+	curl_easy_strerror(res);
 	curl_easy_cleanup(curl_handle);
+	printf("strlen(response) in api_request: %d\n", strlen(response));
 	return response;
 	}
 
 /* the function to invoke as the data recieved */
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp) {
+	printf("size in write_callback_func: %d\n", size);
+	printf("nmemb in write_callback_func: %d\n", nmemb);
+	printf("(size * nmemb) in write_callback_func: %d\n", (size * nmemb));
 	char **response_ptr =  (char**)userp;
 	/* assuming the response is a string */
-	*response_ptr = strndup(buffer, (size_t)(size *nmemb));
+	*response_ptr = strndup(buffer, (size_t)(size * nmemb));
 	}
