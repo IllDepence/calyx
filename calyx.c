@@ -9,18 +9,20 @@ char MAIL[128], PASS[128];
 
 void read_conf_file();
 void parse_conf_line(char *line);
-char *get_request(char *url);
+char *api_request(char *url, int meth, char *params);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
 	read_conf_file();
-	//printf("%s\n", MAIL);
-	//printf("%s\n", PASS);
+	printf("mail: %s\n", MAIL);
+	printf("pass: %s\n", PASS);
 
-	//char *url = "https://hummingbirdv1.p.mashape.com/users/authenticate";
-	char *url = "https://hummingbirdv1.p.mashape.com/anime/steins-gate";
+	char *url = "https://hummingbirdv1.p.mashape.com/users/authenticate";
+	//char *url = "https://hummingbirdv1.p.mashape.com/anime/steins-gate";
 	char *content = NULL;
-	content = get_request(url);
+	char param_buf[128];
+	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS); /* this magically appends "(null)" to the end of the string. therefor the appended & fuck strings in C */
+	content = api_request(url, 1, param_buf);
 
 	printf("%s", content);
 
@@ -63,10 +65,10 @@ void parse_conf_line(char *line) {
 	if(!x) {
 		snprintf(name_buf, (pmatch[1].rm_eo-pmatch[1].rm_so)+1, line+pmatch[1].rm_so);
 		snprintf(val_buf, (pmatch[2].rm_eo-pmatch[2].rm_so)+1, line+pmatch[2].rm_so);
-		if(strcmp(name_buf,"mail") != 0) {
+		if(strcmp(name_buf,"mail") == 0) {
 			sprintf(MAIL, val_buf);
 			}
-		else if(strcmp(name_buf,"pass") != 0) {
+		else if(strcmp(name_buf,"pass") == 0) {
 			sprintf(PASS, val_buf);
 			}
 		}
@@ -76,7 +78,7 @@ void parse_conf_line(char *line) {
 		}
 	}
 
-char *get_request(char *url) {
+char *api_request(char *url, int meth, char *params) {
 	CURL *curl_handle = NULL;
 	char *response = NULL;
 	char *header_part = "X-Mashape-Authorization: ";
@@ -87,7 +89,6 @@ char *get_request(char *url) {
 		}
 	strcat(header, header_part);
 	strcat(header, API_KEY);
-	printf("header >%s<\n", header);
 	
 	curl_handle = curl_easy_init();
 
@@ -97,7 +98,14 @@ char *get_request(char *url) {
 	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, chunk);
 
 	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
-	curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1);
+
+	if(meth) { /* POST */
+		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, params);
+		}
+	else { /* GET */
+		curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1);
+		}
+
 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback_func); /* callback function */
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &response); /* pointer to callback parameter */
