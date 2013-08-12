@@ -4,12 +4,15 @@
 #include <string.h>
 #include <regex.h>
 #include <curl/curl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 char MAIL[128], PASS[128];
 
 void read_conf_file();
 void parse_conf_line(char *line);
-char *api_request(char *url, int meth, char *params);
+char *api_request(char *url, int r_meth, int s_meth, char *params);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
@@ -21,7 +24,7 @@ int main(void) {
 	char *auth_token = NULL;
 	char param_buf[128];
 	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS); /* this magically appends "(null)" to the end of the string. therefore the appended & -- fuck strings in C */
-	auth_token = api_request(url, 1, param_buf);
+	auth_token = api_request(url, 1, 0, param_buf);
 	int atlen = strlen(auth_token) - 2;
 	int i;
 	char stripped_auth_token[atlen];
@@ -36,10 +39,23 @@ int main(void) {
 	url = "https://hummingbirdv1.p.mashape.com/users/me/library";
 	char *json_list = NULL;
 	sprintf(param_buf, "id=me&status=currently-watching&auth_token=%s&", stripped_auth_token); /* this magically appends "(null)" to the end of the string. therefore the appended & -- fuck strings in C */
-	json_list = api_request(url, 0, param_buf);
+	api_request(url, 0, 1, param_buf);
 
-	printf(">%d<\n", strlen(json_list));
-	printf("\njson_list:\n>%s<", json_list);
+	/* get file size */
+	struct stat stat_buf;
+	stat("list_cache.json", &stat_buf);
+	long list_size = (long) stat_buf.st_size;
+
+	FILE *list_fd;
+	char list_line[list_size];
+	if((list_fd = fopen("list_cache.json", "r")) == NULL) {
+		perror("fopen");
+		exit(1);
+		}
+	while(fgets(list_line, sizeof(list_line), list_fd)) {
+		printf("%s", list_line);
+		}
+	fclose(list_fd);
 
 	return 0;
 	}
@@ -93,9 +109,10 @@ void parse_conf_line(char *line) {
 		}
 	}
 
-char *api_request(char *url, int meth, char *params) {
+/* r_meth = request method (GET/POST), s_meth = store method (return/file) */
+char *api_request(char *url, int r_meth, int s_meth, char *params) {
 	CURL *curl_handle = NULL;
-	char *response = NULL;
+	char *response;
 	char *header_part = "X-Mashape-Authorization: ";
 	int i, n = (strlen(header_part) + strlen(API_KEY));
 	char header[n];
@@ -112,8 +129,7 @@ char *api_request(char *url, int meth, char *params) {
 	chunk = curl_slist_append(chunk, header);
 	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, chunk);
 
-
-	if(meth) { /* POST */
+	if(r_meth) { /* POST */
 		curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, params);
 		}
@@ -126,23 +142,32 @@ char *api_request(char *url, int meth, char *params) {
 		curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1);
 		}
 
-
 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1);
-	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback_func); /* callback function */
-	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &response); /* pointer to callback parameter */
-	CURLcode res;
+
+	FILE *list_cache_fd;
+	if(s_meth) { /* save to file  */
+		response = "toast";
+		if((list_cache_fd = fopen("list_cache.json", "w")) == NULL) {
+			perror("fopen");
+			exit(1);
+			}
+		curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, list_cache_fd);
+		}
+	else { /* return response */
+		response = NULL;
+		curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback_func); /* callback function */
+		curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &response); /* pointer to callback parameter */
+		}
+
 	curl_easy_perform(curl_handle); /* perform the request */
-	curl_easy_strerror(res);
 	curl_easy_cleanup(curl_handle);
-	printf("strlen(response) in api_request: %d\n", strlen(response));
+	//printf("strlen(response) in api_request: %d\n", strlen(response));
+	if(s_meth) fclose(list_cache_fd);
 	return response;
 	}
 
 /* the function to invoke as the data recieved */
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp) {
-	printf("size in write_callback_func: %d\n", size);
-	printf("nmemb in write_callback_func: %d\n", nmemb);
-	printf("(size * nmemb) in write_callback_func: %d\n", (size * nmemb));
 	char **response_ptr =  (char**)userp;
 	/* assuming the response is a string */
 	*response_ptr = strndup(buffer, (size_t)(size * nmemb));
