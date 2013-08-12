@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <json/json.h>
 
 char MAIL[128], PASS[128];
 
@@ -23,7 +24,8 @@ int main(void) {
 	char *url = "https://hummingbirdv1.p.mashape.com/users/authenticate";
 	char *auth_token = NULL;
 	char param_buf[128];
-	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS); /* this magically appends "(null)" to the end of the string. therefore the appended & -- fuck strings in C */
+	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS);
+	/* the above magically appends "(null)" to the end of the string. therefore the closing "&" -- fuck strings in C */
 	auth_token = api_request(url, 1, 0, param_buf);
 	int atlen = strlen(auth_token) - 2;
 	int i;
@@ -33,12 +35,10 @@ int main(void) {
 		}
 	stripped_auth_token[atlen] = '\0';
 
-	//printf("\nauth_token:\n%s", stripped_auth_token);
-
 	/* get watching list */
 	url = "https://hummingbirdv1.p.mashape.com/users/me/library";
 	char *json_list = NULL;
-	sprintf(param_buf, "id=me&status=currently-watching&auth_token=%s&", stripped_auth_token); /* this magically appends "(null)" to the end of the string. therefore the appended & -- fuck strings in C */
+	sprintf(param_buf, "id=me&status=currently-watching&auth_token=%s&", stripped_auth_token);
 	api_request(url, 0, 1, param_buf);
 
 	/* get file size */
@@ -46,16 +46,34 @@ int main(void) {
 	stat("list_cache.json", &stat_buf);
 	long list_size = (long) stat_buf.st_size;
 
+	/* read list file */
 	FILE *list_fd;
-	char list_line[list_size];
+	char list_line[list_size+1];
 	if((list_fd = fopen("list_cache.json", "r")) == NULL) {
 		perror("fopen");
 		exit(1);
 		}
-	while(fgets(list_line, sizeof(list_line), list_fd)) {
-		printf("%s", list_line);
-		}
+	fgets(list_line, sizeof(list_line), list_fd);
 	fclose(list_fd);
+
+	/* parse json */
+	json_object *jobj = json_tokener_parse(list_line);
+	enum json_type type = json_object_get_type(jobj);
+	if(type != json_type_array) {
+		fprintf(stderr, "unexpected api reply\n");
+		exit(1);
+		}
+	int list_len = json_object_array_length(jobj);
+	json_object *list_object;
+	json_object *anime_object;
+	json_object *title_object;
+
+	for (i=0; i<list_len; i++) {
+		list_object = json_object_array_get_idx(jobj, i);
+		anime_object = json_object_object_get(list_object, "anime");
+		title_object = json_object_object_get(anime_object, "title");
+		printf("%s\n", json_object_get_string(title_object));
+		}
 
 	return 0;
 	}
