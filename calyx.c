@@ -9,31 +9,23 @@ char MAIL[128], PASS[128];
 
 void read_conf_file();
 void parse_conf_line(char *line);
+char *get_request(char *url);
+size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
-	printf("api-key: %s", API_KEY);
 	read_conf_file();
-	printf("%s", MAIL);
-	printf("%s", PASS);
+	//printf("%s\n", MAIL);
+	//printf("%s\n", PASS);
 
-	CURL *curl;
-	CURLcode res;
+	//char *url = "https://hummingbirdv1.p.mashape.com/users/authenticate";
+	char *url = "https://hummingbirdv1.p.mashape.com/anime/steins-gate";
+	char *content = NULL;
+	content = get_request(url);
 
-	curl = curl_easy_init();
-	if(curl) {
-		curl_easy_setopt(curl, CURLOPT_URL, "https://hummingbirdv1.p.mashape.com/users/authenticate");
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		/* Perform the request, res will get the return code */ 
-		res = curl_easy_perform(curl);
-		/* Check for errors */ 
-		if(res != CURLE_OK) {
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-			}
-		/* always cleanup */ 
-		curl_easy_cleanup(curl);
-		}
+	printf("%s", content);
+
 	return 0;
-}
+	}
 
 void read_conf_file() {
 	/* read config file */
@@ -82,4 +74,41 @@ void parse_conf_line(char *line) {
 		fprintf(stderr, "invalid config file\n");
 		exit(1);
 		}
+	}
+
+char *get_request(char *url) {
+	CURL *curl_handle = NULL;
+	char *response = NULL;
+	char *header_part = "X-Mashape-Authorization: ";
+	int i, n = (strlen(header_part) + strlen(API_KEY));
+	char header[n];
+	for(i=0; i<n; i++) {
+		header[i] = '\0';
+		}
+	strcat(header, header_part);
+	strcat(header, API_KEY);
+	printf("header >%s<\n", header);
+	
+	curl_handle = curl_easy_init();
+
+	/* custom mashape header */
+	struct curl_slist *chunk = NULL;
+	chunk = curl_slist_append(chunk, header);
+	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, chunk);
+
+	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+	curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1);
+	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback_func); /* callback function */
+	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &response); /* pointer to callback parameter */
+	curl_easy_perform(curl_handle); /* perform the request */
+	curl_easy_cleanup(curl_handle);
+	return response;
+	}
+
+/* the function to invoke as the data recieved */
+size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp) {
+	char **response_ptr =  (char**)userp;
+	/* assuming the response is a string */
+	*response_ptr = strndup(buffer, (size_t)(size *nmemb));
 	}
