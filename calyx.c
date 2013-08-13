@@ -15,6 +15,13 @@ void read_conf_file();
 void parse_conf_line(char *line);
 char *api_request(char *url, int r_meth, int s_meth, char *params);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
+
+struct list_item {
+	char title[128];
+	char id[128];
+	int ep_seen;
+	int ep_total;
+	};
  
 int main(void) {
 	/* read config file */
@@ -66,13 +73,25 @@ int main(void) {
 	int list_len = json_object_array_length(jobj);
 	json_object *list_object;
 	json_object *anime_object;
-	json_object *title_object;
+
+	struct list_item anime_list[list_len];
 
 	for (i=0; i<list_len; i++) {
 		list_object = json_object_array_get_idx(jobj, i);
 		anime_object = json_object_object_get(list_object, "anime");
-		title_object = json_object_object_get(anime_object, "title");
-		printf("%s\n", json_object_get_string(title_object));
+		sprintf(anime_list[i].title, json_object_get_string(json_object_object_get(anime_object, "title")));
+		sprintf(anime_list[i].id, json_object_get_string(json_object_object_get(anime_object, "slug")));
+		anime_list[i].ep_seen = json_object_get_int(json_object_object_get(list_object, "episodes_watched"));
+		anime_list[i].ep_total = json_object_get_int(json_object_object_get(anime_object, "episode_count"));
+		}
+
+	for (i=0; i<list_len; i++) {
+		/*
+		printf("%s [%d/%d] (%s)\n", anime_list[i].title,
+			anime_list[i].ep_seen,
+			anime_list[i].ep_total,
+			anime_list[i].id);
+		*/
 		}
 
 	return 0;
