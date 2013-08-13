@@ -1,13 +1,14 @@
 #include "calyx.h" 
+#include <curl/curl.h>
+#include <json/json.h>
+#include <ncurses.h>
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <regex.h>
-#include <curl/curl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <json/json.h>
 
 char MAIL[128], PASS[128];
 
@@ -76,7 +77,7 @@ int main(void) {
 
 	struct list_item anime_list[list_len];
 
-	for (i=0; i<list_len; i++) {
+	for(i=0; i<list_len; i++) {
 		list_object = json_object_array_get_idx(jobj, i);
 		anime_object = json_object_object_get(list_object, "anime");
 		sprintf(anime_list[i].title, json_object_get_string(json_object_object_get(anime_object, "title")));
@@ -85,16 +86,48 @@ int main(void) {
 		anime_list[i].ep_total = json_object_get_int(json_object_object_get(anime_object, "episode_count"));
 		}
 
-	for (i=0; i<list_len; i++) {
-		/*
-		printf("%s [%d/%d] (%s)\n", anime_list[i].title,
-			anime_list[i].ep_seen,
-			anime_list[i].ep_total,
-			anime_list[i].id);
-		*/
+	/* get ncurses doing */
+	int rows, cols, title_len, info_len, j, t_idx, i_idx;
+	initscr();
+	getmaxyx(stdscr, rows, cols);
+	char str_buf[cols], tmp_buf[cols];
+
+	for(i=0; i<list_len && i<rows; i++) {
+		title_len = strlen(anime_list[i].title);
+		info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
+		sprintf(tmp_buf, "[%d/%d]", anime_list[i].ep_seen, anime_list[i].ep_total);
+
+		t_idx = 0;
+		i_idx = 0;
+		for(j=0; j<cols; j++) {
+			if(j < (cols-(3 + info_len))) {
+				if(j < title_len) {
+					/* insert title char */
+					str_buf[j] = anime_list[i].title[t_idx++];
+					}
+				else {
+					str_buf[j] = ' ';
+					}
+				}
+			else {
+				/* insert info char */
+				str_buf[j] = tmp_buf[i_idx++];
+				}
+			}
+		mvprintw(i, 0, str_buf);
 		}
 
+	refresh();
+	getch();
+	endwin();
+
 	return 0;
+	}
+
+int num_len(int i) {
+	char c[10];
+	sprintf(c, "%d", i);
+	return strlen(c);
 	}
 
 void read_conf_file() {
