@@ -4,7 +4,12 @@ the beautiful thing to nourish your hummingbird :)
 
 status
 ------
-basic list display done, now implementing navigation though the list
+basic functionality implemented
+
+todo: 
+* list sorting
+* list scrolling
+* indication of blocking procedures (api requests)
 
 misc
 ----
