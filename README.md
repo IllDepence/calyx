@@ -2,6 +2,19 @@ calyx
 =====
 the beautiful thing to nourish your hummingbird :)
 
+setup
+-----
+* compile: gcc -o calyx calyx.c -lcurl -ljson-c -lncurses
+* create files calyx.cfg and calyx.h (see examples)
+* launch
+
+usage
+-----
+* **j** down
+* **k** up
+* **a** increase watched episodes count
+* **q** quit
+
 status
 ------
 basic functionality implemented
@@ -11,10 +24,6 @@ todo:
 * list scrolling
 * indication of blocking procedures (api requests)
 
-misc
+note
 ----
-**NOTE** This is the first piece of software I write in C, therefore the code will suck, A LOT. Trust me.
-
-**built with** libcurl, json-c, ncurses
-
-**compile** gcc -o calyx calyx.c -lcurl -ljson-c -lncurses
+This is the first piece of software I write in C, so the code will most likely suck, A LOT.
