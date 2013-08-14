@@ -87,38 +87,62 @@ int main(void) {
 		}
 
 	/* get ncurses doing */
-	int rows, cols, title_len, info_len, j, t_idx, i_idx;
+	int rows, cols, title_len, info_len, j, t_idx, i_idx, curr_line, select_line=0;
 	initscr();
 	getmaxyx(stdscr, rows, cols);
-	char str_buf[cols], tmp_buf[cols];
+	raw();
+	noecho();
+	keypad(stdscr, TRUE);
+	char str_buf[cols], tmp_buf[cols], inp, update_url[128], update_params[128];
 
-	for(i=0; i<list_len && i<rows; i++) {
-		title_len = strlen(anime_list[i].title);
-		info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
-		sprintf(tmp_buf, "[%d/%d]", anime_list[i].ep_seen, anime_list[i].ep_total);
+	do {
+		curr_line = 0;
+		for(i=0; i<list_len && i<rows; i++) {
+			title_len = strlen(anime_list[i].title);
+			info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
+			sprintf(tmp_buf, "[%d/%d]", anime_list[i].ep_seen, anime_list[i].ep_total);
 
-		t_idx = 0;
-		i_idx = 0;
-		for(j=0; j<cols; j++) {
-			if(j < (cols-(3 + info_len))) {
-				if(j < title_len) {
-					/* insert title char */
-					str_buf[j] = anime_list[i].title[t_idx++];
+			t_idx = 0;
+			i_idx = 0;
+			for(j=0; j<cols; j++) {
+				if(j < (cols-(3 + info_len))) {
+					if(j < title_len) {
+						/* insert title char */
+						str_buf[j] = anime_list[i].title[t_idx++];
+						}
+					else {
+						str_buf[j] = ' ';
+						}
 					}
 				else {
-					str_buf[j] = ' ';
+					/* insert info char */
+					str_buf[j] = tmp_buf[i_idx++];
 					}
 				}
-			else {
-				/* insert info char */
-				str_buf[j] = tmp_buf[i_idx++];
-				}
+			if(curr_line == select_line) attron(A_STANDOUT);
+			mvprintw(i, 0, str_buf);
+			if(curr_line == select_line) attroff(A_STANDOUT);
+			curr_line++;
 			}
-		mvprintw(i, 0, str_buf);
-		}
 
-	refresh();
-	getch();
+		refresh();
+		inp = getch();
+		switch(inp) {
+			case 'j':
+				if(select_line < rows && select_line < list_len-1) select_line++;
+				break;
+			case 'k':
+				if(select_line > 0) select_line--;
+				break;
+			case 'a':
+				sprintf(update_url, "https://hummingbirdv1.p.mashape.com/libraries/%s", anime_list[select_line].id);
+				sprintf(update_params, "anime_id=%s&auth_token=%s&increment_episodes=true", anime_list[select_line].id, stripped_auth_token);
+				api_request(update_url, 1, 0, update_params);
+			default:
+				break;
+			}
+		} while(inp != 'q');
+
 	endwin();
 
 	return 0;
