@@ -19,6 +19,8 @@ struct list_item {
 	int ep_total;
 	};
 
+int num_len(int i);
+int comp_ani(const void *v1, const void *v2);
 void read_conf_file();
 void parse_conf_line(char *line);
 void api_authenticate();
@@ -82,6 +84,7 @@ int main(void) {
 
 		refresh();
 		inp = getch();
+		int list_update = 0, delta;
 		switch(inp) {
 			case 'j':
 				if(select_line < rows && select_line < list_len-1) select_line++;
@@ -89,19 +92,29 @@ int main(void) {
 			case 'k':
 				if(select_line > 0) select_line--;
 				break;
-			case 'a':
-				/* send update api request */
-				sprintf(update_url, "https://hummingbirdv1.p.mashape.com/libraries/%s", anime_list[select_line].id);
-				sprintf(update_params, "anime_id=%s&auth_token=%s&increment_episodes=true", anime_list[select_line].id, AUTH);
-				api_request(update_url, 1, 0, update_params);
-				/* get updated list */
-				api_get_json_list();
-				list_len = get_c_list(anime_buf);
-				for(i=0; i<list_len; i++) {
-					anime_list[i] = anime_buf[i];
-					}
+			case 'l':
+				list_update = 1;
+				delta = 1;
+				break;
+			case 'h':
+				list_update = 1;
+				delta = -1;
+				break;
 			default:
 				break;
+			}
+		if(list_update) {
+			/* send update api request */
+			sprintf(update_url, "https://hummingbirdv1.p.mashape.com/libraries/%s", anime_list[select_line].id);
+			sprintf(update_params, "anime_id=%s&auth_token=%s&episodes_watched=%d", anime_list[select_line].id,
+				AUTH, (anime_list[select_line].ep_seen+delta));
+			api_request(update_url, 1, 0, update_params);
+			/* get updated list */
+			api_get_json_list();
+			list_len = get_c_list(anime_buf);
+			for(i=0; i<list_len; i++) {
+				anime_list[i] = anime_buf[i];
+				}
 			}
 		} while(inp != 'q');
 
@@ -114,6 +127,12 @@ int num_len(int i) {
 	char c[10];
 	sprintf(c, "%d", i);
 	return strlen(c);
+	}
+
+int comp_ani(const void *v1, const void *v2) {
+	const struct list_item *li1 = v1;
+	const struct list_item *li2 = v2;
+	return strcmp(li1->title, li2->title);
 	}
 
 void read_conf_file() {
@@ -228,6 +247,7 @@ int get_c_list(struct list_item *anime_list) {
 		anime_list[i].ep_total = json_object_get_int(json_object_object_get(anime_object, "episode_count"));
 		}
 
+	qsort(anime_list, list_len, sizeof(anime_list[0]), comp_ani);
 	return list_len;
 	}
 

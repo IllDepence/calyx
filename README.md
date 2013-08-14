@@ -12,7 +12,8 @@ usage
 -----
 * **j** down
 * **k** up
-* **a** increase watched episodes count
+* **l** increase watched episodes count by one
+* **h** decrease watched episodes count by one
 * **q** quit
 
 status
@@ -20,7 +21,6 @@ status
 basic functionality implemented
 
 todo: 
-* list sorting
 * list scrolling
 * indication of blocking procedures (api requests)
 
