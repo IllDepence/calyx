@@ -72,8 +72,13 @@ int main(void) {
 						}
 					}
 				else {
-					/* insert info char */
-					str_buf[j] = tmp_buf[i_idx++];
+					if(j < (cols-(info_len))) {
+						str_buf[j] = ' ';
+						}
+					else {
+						/* insert info char */
+						str_buf[j] = tmp_buf[i_idx++];
+						}
 					}
 				}
 			if(curr_line == select_line) attron(A_STANDOUT);
@@ -116,6 +121,7 @@ int main(void) {
 				anime_list[i] = anime_buf[i];
 				}
 			}
+		getmaxyx(stdscr, rows, cols);
 		} while(inp != 'q');
 
 	endwin();

@@ -10,11 +10,11 @@ setup
 
 usage
 -----
-* **j** down
-* **k** up
-* **l** increase watched episodes count by one
-* **h** decrease watched episodes count by one
-* **q** quit
+* **j** -> down
+* **k** -> up
+* **l** -> increase watched episodes count by one
+* **h** -> decrease watched episodes count by one
+* **q** -> quit
 
 status
 ------
