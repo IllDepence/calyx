@@ -20,8 +20,14 @@ struct list_item {
 	int ep_total;
 	};
 
-void read_bot_watch_file();
+struct packlist_ref {
+	char ani_id[128];
+	char packlist_name[128];
+	};
+
+int read_bot_watch_file(struct packlist_ref *buf);
 void get_bot_packlists();
+const char *file_name_from_url(char *url);
 int num_len(int i);
 int comp_ani(const void *v1, const void *v2);
 void read_conf_file();
@@ -33,16 +39,23 @@ char *api_request(char *url, int r_meth, int s_meth, char *params, char *fname);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
-	//api_request(url, 0, 1, param_buf, "");
-	read_bot_watch_file();
-	exit(0);
 	API_KEY = get_api_key();
+
+	/* acquire xdcc packlists */
+	int p_ref_count, i;
+	struct packlist_ref pr_buf[100];
+	p_ref_count =  read_bot_watch_file(pr_buf);
+	struct packlist_ref p_refs[p_ref_count];
+	for(i=0; i<p_ref_count; i++) {
+		p_refs[i] = pr_buf[i];
+		}
+
+	/* acquire hb anime list */
 	read_conf_file();
 	api_authenticate();
 	api_get_json_list();
 	struct list_item anime_buf[100];
 	int list_len = get_c_list(anime_buf);
-	int i;
 	struct list_item anime_list[list_len];
 	for(i=0; i<list_len; i++) {
 		anime_list[i] = anime_buf[i];
@@ -148,7 +161,7 @@ int main(void) {
 	return 0;
 	}
 
-void read_bot_watch_file() {
+int read_bot_watch_file(struct packlist_ref *p_refs) {
 	/* get file size */
 	struct stat stat_buf;
 	stat("bot_watch.json", &stat_buf);
@@ -175,11 +188,12 @@ void read_bot_watch_file() {
 	json_object *bot_watch_object;
 
 	int i, j, old, url_count=0;
-	char url_tmp[128], urls[list_len][128];
+	char url_tmp[128], urls[list_len][128], id_tmp[128];
 	for(i=0; i<list_len; i++) {
 		bot_watch_object = json_object_array_get_idx(jobj, i);
 		sprintf(url_tmp, json_object_get_string(json_object_object_get(bot_watch_object, "url")));
-		old=0; // assume it's a new url
+		sprintf(id_tmp, json_object_get_string(json_object_object_get(bot_watch_object, "hb_id")));
+		old=0; /* assume it's a new url */
 		for(j=0; j<url_count; j++) {
 			if(strcmp(url_tmp,urls[j]) == 0) { /* oh, it's not  */
 				old=1;
@@ -189,24 +203,40 @@ void read_bot_watch_file() {
 		if(!old) {
 			sprintf(urls[url_count++], url_tmp);
 			}
+		/* build array of packlist refs */
+		sprintf(p_refs[i].ani_id, id_tmp);
+		sprintf(p_refs[i].packlist_name, file_name_from_url(url_tmp));
 		}
 
 	for(i=0; i<url_count; i++) {
-		printf("%s\n", urls[i]);
+		/* download packlists */
+		api_request(urls[i], 0, 1, "", (char*) file_name_from_url(urls[i]));
 		}
+	return list_len;
+	}
 
-	for(i=0; i<list_len; i++) {
-		/*
-		bot_watch_object = json_object_array_get_idx(jobj, i);
-		printf("%s\n", json_object_get_string(json_object_object_get(bot_watch_object, "packlist_title")));
-		list_object = json_object_array_get_idx(jobj, i);
-		anime_object = json_object_object_get(list_object, "anime");
-		sprintf(anime_list[i].title, json_object_get_string(json_object_object_get(anime_object, "title")));
-		sprintf(anime_list[i].id, json_object_get_string(json_object_object_get(anime_object, "slug")));
-		anime_list[i].ep_seen = json_object_get_int(json_object_object_get(list_object, "episodes_watched"));
-		anime_list[i].ep_total = json_object_get_int(json_object_object_get(anime_object, "episode_count"));
-		*/
+const char *file_name_from_url(char *url) {
+	/* initialize stuff */
+	int x, i;
+	static char file_name[128] = "";
+	regex_t patt;
+	size_t nmatch = 2;
+	regmatch_t pmatch[2];
+	char patt_str[] = "/([^/]+)$";
+	/* apply regex pattern */
+	if(regcomp(&patt, patt_str, REG_EXTENDED) != 0) {
+		perror("regcomp");
+		exit(1);
 		}
+	x = regexec(&patt, url, nmatch, pmatch, 0);
+	if(!x) {
+		snprintf(file_name, (pmatch[1].rm_eo-pmatch[1].rm_so)+1, url+pmatch[1].rm_so);
+		}
+	else {
+		fprintf(stderr, "invalid url (needs a file name)\n");
+		exit(1);
+		}
+	return file_name;
 	}
 
 int num_len(int i) {
@@ -389,7 +419,6 @@ char *api_request(char *url, int r_meth, int s_meth, char *params, char *fname) 
 
 	curl_easy_perform(curl_handle); /* perform the request */
 	curl_easy_cleanup(curl_handle);
-	//printf("strlen(response) in api_request: %d\n", strlen(response));
 	if(s_meth) fclose(list_cache_fd);
 	return response;
 	}
