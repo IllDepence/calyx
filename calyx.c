@@ -20,6 +20,8 @@ struct list_item {
 	int ep_total;
 	};
 
+void read_bot_watch_file();
+void get_bot_packlists();
 int num_len(int i);
 int comp_ani(const void *v1, const void *v2);
 void read_conf_file();
@@ -27,10 +29,13 @@ void parse_conf_line(char *line);
 void api_authenticate();
 void api_get_json_list();
 int get_c_list(struct list_item *buf);
-char *api_request(char *url, int r_meth, int s_meth, char *params);
+char *api_request(char *url, int r_meth, int s_meth, char *params, char *fname);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
+	//api_request(url, 0, 1, param_buf, "");
+	read_bot_watch_file();
+	exit(0);
 	API_KEY = get_api_key();
 	read_conf_file();
 	api_authenticate();
@@ -127,7 +132,7 @@ int main(void) {
 			sprintf(update_url, "https://hummingbirdv1.p.mashape.com/libraries/%s", anime_list[select_line].id);
 			sprintf(update_params, "anime_id=%s&auth_token=%s&episodes_watched=%d", anime_list[select_line].id,
 				AUTH, (anime_list[select_line].ep_seen+delta));
-			api_request(update_url, 1, 0, update_params);
+			api_request(update_url, 1, 0, update_params, "");
 			/* get updated list */
 			api_get_json_list();
 			list_len = get_c_list(anime_buf);
@@ -141,6 +146,67 @@ int main(void) {
 	endwin();
 
 	return 0;
+	}
+
+void read_bot_watch_file() {
+	/* get file size */
+	struct stat stat_buf;
+	stat("bot_watch.json", &stat_buf);
+	long f_size = (long) stat_buf.st_size;
+
+	/* read whole json file in bw_buf */
+	FILE *bw_fd;
+	char bw_buf[f_size];
+	if((bw_fd = fopen("bot_watch.json", "r")) == NULL) {
+		perror("fopen");
+		exit(1);
+		}
+	fread(bw_buf, sizeof(char), f_size, bw_fd);
+	fclose(bw_fd);
+
+	/* parse json */
+	json_object *jobj = json_tokener_parse(bw_buf);
+	enum json_type type = json_object_get_type(jobj);
+	if(type != json_type_array) {
+		fprintf(stderr, "unexpected bot watch syntax\n");
+		exit(1);
+		}
+	int list_len = json_object_array_length(jobj);
+	json_object *bot_watch_object;
+
+	int i, j, old, url_count=0;
+	char url_tmp[128], urls[list_len][128];
+	for(i=0; i<list_len; i++) {
+		bot_watch_object = json_object_array_get_idx(jobj, i);
+		sprintf(url_tmp, json_object_get_string(json_object_object_get(bot_watch_object, "url")));
+		old=0; // assume it's a new url
+		for(j=0; j<url_count; j++) {
+			if(strcmp(url_tmp,urls[j]) == 0) { /* oh, it's not  */
+				old=1;
+				break;
+				}
+			}
+		if(!old) {
+			sprintf(urls[url_count++], url_tmp);
+			}
+		}
+
+	for(i=0; i<url_count; i++) {
+		printf("%s\n", urls[i]);
+		}
+
+	for(i=0; i<list_len; i++) {
+		/*
+		bot_watch_object = json_object_array_get_idx(jobj, i);
+		printf("%s\n", json_object_get_string(json_object_object_get(bot_watch_object, "packlist_title")));
+		list_object = json_object_array_get_idx(jobj, i);
+		anime_object = json_object_object_get(list_object, "anime");
+		sprintf(anime_list[i].title, json_object_get_string(json_object_object_get(anime_object, "title")));
+		sprintf(anime_list[i].id, json_object_get_string(json_object_object_get(anime_object, "slug")));
+		anime_list[i].ep_seen = json_object_get_int(json_object_object_get(list_object, "episodes_watched"));
+		anime_list[i].ep_total = json_object_get_int(json_object_object_get(anime_object, "episode_count"));
+		*/
+		}
 	}
 
 int num_len(int i) {
@@ -210,7 +276,7 @@ void api_authenticate() {
 	char param_buf[128];
 	sprintf(param_buf, "email=%s&password=%s&", MAIL, PASS);
 	/* the above magically appends "(null)" to the end of the string. therefore the closing "&" -- fuck strings in C */
-	auth_token = api_request(url, 1, 0, param_buf);
+	auth_token = api_request(url, 1, 0, param_buf, "");
 	int atlen = strlen(auth_token) - 2;
 	int i;
 	char stripped_auth_token[atlen];
@@ -227,7 +293,7 @@ void api_get_json_list() {
 	char *json_list = NULL;
 	char param_buf[128];
 	sprintf(param_buf, "id=me&status=currently-watching&auth_token=%s&", AUTH);
-	api_request(url, 0, 1, param_buf);
+	api_request(url, 0, 1, param_buf, "list_cache.json");
 	}
 
 int get_c_list(struct list_item *anime_list) {
@@ -272,7 +338,7 @@ int get_c_list(struct list_item *anime_list) {
 	}
 
 /* r_meth = request method (GET/POST), s_meth = store method (return/file) */
-char *api_request(char *url, int r_meth, int s_meth, char *params) {
+char *api_request(char *url, int r_meth, int s_meth, char *params, char *fname) {
 	CURL *curl_handle = NULL;
 	char *response;
 	char *header_part = "X-Mashape-Authorization: ";
@@ -309,7 +375,7 @@ char *api_request(char *url, int r_meth, int s_meth, char *params) {
 	FILE *list_cache_fd;
 	if(s_meth) { /* save to file  */
 		response = "toast";
-		if((list_cache_fd = fopen("list_cache.json", "w")) == NULL) {
+		if((list_cache_fd = fopen(fname, "w")) == NULL) {
 			perror("fopen");
 			exit(1);
 			}

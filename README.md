@@ -5,7 +5,8 @@ the beautiful thing to nourish your hummingbird :)
 setup
 -----
 * compile: gcc -o calyx calyx.c aux.o -lcurl -ljson-c -lncurses
-* create file calyx.cfg (see examples)
+* create file calyx.cfg (see example)
+* adjust file bot\_watch.json
 * launch
 
 usage
@@ -21,6 +22,7 @@ status
 basic functionality implemented
 
 todo: 
+* xdcc bot "integration"
 * list scrolling
 * indication of blocking procedures (api requests)
 
