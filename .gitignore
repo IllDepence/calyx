@@ -1,4 +1,4 @@
-calyx.conf
-calyx.h
+aux.c
 calyx
+calyx.conf
 list_cache.json

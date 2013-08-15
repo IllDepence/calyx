@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 char MAIL[128], PASS[128], AUTH[32];
+const char *API_KEY;
 
 struct list_item {
 	char title[128];
@@ -30,6 +31,7 @@ char *api_request(char *url, int r_meth, int s_meth, char *params);
 size_t static write_callback_func(void *buffer, size_t size, size_t nmemb, void *userp);
  
 int main(void) {
+	API_KEY = get_api_key();
 	read_conf_file();
 	api_authenticate();
 	api_get_json_list();
@@ -41,7 +43,7 @@ int main(void) {
 		anime_list[i] = anime_buf[i];
 		}
 
-	/* get ncurses doing */
+	/* get ncurses going */
 	int rows, cols, title_len, info_len, j, t_idx, i_idx, curr_line, select_line=0;
 
 	initscr();
@@ -54,37 +56,49 @@ int main(void) {
 
 	do {
 		curr_line = 0;
-		for(i=0; i<list_len && i<rows; i++) {
-			title_len = strlen(anime_list[i].title);
-			info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
-			sprintf(tmp_buf, "[%d/%d]", anime_list[i].ep_seen, anime_list[i].ep_total);
-
-			t_idx = 0;
-			i_idx = 0;
-			for(j=0; j<cols; j++) {
-				if(j < (cols-(3 + info_len))) {
-					if(j < title_len) {
-						/* insert title char */
-						str_buf[j] = anime_list[i].title[t_idx++];
-						}
-					else {
-						str_buf[j] = ' ';
-						}
+		for(i=0; i<rows; i++) {
+			if(i<list_len) {
+				title_len = strlen(anime_list[i].title);
+				info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
+				if(anime_list[i].ep_total != 0) {
+					sprintf(tmp_buf, "[%d/%d]", anime_list[i].ep_seen, anime_list[i].ep_total);
 					}
 				else {
-					if(j < (cols-(info_len))) {
-						str_buf[j] = ' ';
+					sprintf(tmp_buf, "[%d/?]", anime_list[i].ep_seen);
+					}
+
+				t_idx = 0;
+				i_idx = 0;
+				for(j=0; j<cols; j++) {
+					if(j < (cols-(3 + info_len))) {
+						if(j < title_len) {
+							/* insert title char */
+							str_buf[j] = anime_list[i].title[t_idx++];
+							}
+						else {
+							str_buf[j] = ' ';
+							}
 						}
 					else {
-						/* insert info char */
-						str_buf[j] = tmp_buf[i_idx++];
+						if(j < (cols-(info_len))) {
+							str_buf[j] = ' ';
+							}
+						else {
+							/* insert info char */
+							str_buf[j] = tmp_buf[i_idx++];
+							}
 						}
 					}
+				if(curr_line == select_line) attron(A_STANDOUT);
+				mvprintw(i, 0, str_buf);
+				if(curr_line == select_line) attroff(A_STANDOUT);
+				curr_line++;
 				}
-			if(curr_line == select_line) attron(A_STANDOUT);
-			mvprintw(i, 0, str_buf);
-			if(curr_line == select_line) attroff(A_STANDOUT);
-			curr_line++;
+			else {
+				for(j=0; j<cols; j++) {
+					str_buf[j] = ' ';
+					}
+				}
 			}
 
 		refresh();

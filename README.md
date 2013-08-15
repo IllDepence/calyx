@@ -4,7 +4,7 @@ the beautiful thing to nourish your hummingbird :)
 
 setup
 -----
-* compile: gcc -o calyx calyx.c -lcurl -ljson-c -lncurses
+* compile: gcc -o calyx calyx.c aux.o -lcurl -ljson-c -lncurses
 * create files calyx.cfg and calyx.h (see examples)
 * launch
 
