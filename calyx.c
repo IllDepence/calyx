@@ -21,8 +21,12 @@ struct list_item {
 	};
 
 struct packlist_ref {
-	char ani_id[128];
-	char packlist_name[128];
+	char hb_id[128];
+	char packlist_title[128];
+	char packlist_file_name[128];
+	char subgroup[32];
+	int most_recent_ep;
+	int packnum;
 	};
 
 int read_bot_watch_file(struct packlist_ref *buf);
@@ -188,11 +192,10 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 	json_object *bot_watch_object;
 
 	int i, j, old, url_count=0;
-	char url_tmp[128], urls[list_len][128], id_tmp[128];
+	char url_tmp[128], urls[list_len][128];
 	for(i=0; i<list_len; i++) {
 		bot_watch_object = json_object_array_get_idx(jobj, i);
 		sprintf(url_tmp, json_object_get_string(json_object_object_get(bot_watch_object, "url")));
-		sprintf(id_tmp, json_object_get_string(json_object_object_get(bot_watch_object, "hb_id")));
 		old=0; /* assume it's a new url */
 		for(j=0; j<url_count; j++) {
 			if(strcmp(url_tmp,urls[j]) == 0) { /* oh, it's not  */
@@ -204,14 +207,57 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 			sprintf(urls[url_count++], url_tmp);
 			}
 		/* build array of packlist refs */
-		sprintf(p_refs[i].ani_id, id_tmp);
-		sprintf(p_refs[i].packlist_name, file_name_from_url(url_tmp));
+		sprintf(p_refs[i].hb_id, json_object_get_string(json_object_object_get(bot_watch_object, "hb_id")));
+		sprintf(p_refs[i].packlist_title, json_object_get_string(json_object_object_get(bot_watch_object, "packlist_title")));
+		sprintf(p_refs[i].subgroup, json_object_get_string(json_object_object_get(bot_watch_object, "group")));
+		sprintf(p_refs[i].packlist_file_name, file_name_from_url(url_tmp));
 		}
 
 	for(i=0; i<url_count; i++) {
 		/* download packlists */
 		api_request(urls[i], 0, 1, "", (char*) file_name_from_url(urls[i]));
 		}
+
+	/* gather information */
+	for(i=0; i<list_len; i++) {
+		FILE *p_fd;
+		p_fd = fopen(p_refs[i].packlist_file_name, "r");
+		char p_line[512];
+		int x, tmp_pak, tmp_ep;
+		p_refs[i].most_recent_ep = 0;
+		p_refs[i].packnum = 0;
+		while(fgets(p_line, sizeof(p_line), p_fd)) {
+			/* initialize regex stuff */
+			regex_t patt;
+			size_t nmatch = 3;
+			regmatch_t pmatch[3];
+			char patt_str[256], match_buf_pak[16], match_buf_ep[16];
+			//sprintf(patt_str, "^#(\\d+).+?\\[%s].+?%s.+?(\\d+)", p_refs[i].subgroup, p_refs[i].packlist_title);
+			sprintf(patt_str, "^#([0-9]+).+?\\[%s].+?%s[^\\[\\(0-9]+?([0-9]+)", p_refs[i].subgroup, p_refs[i].packlist_title);
+			/* apply regex pattern */
+			if(regcomp(&patt, patt_str, REG_EXTENDED) != 0) {
+				perror("regcomp");
+				exit(1);
+				}
+			x = regexec(&patt, p_line, nmatch, pmatch, 0);
+			if(!x) {
+				snprintf(match_buf_pak, (pmatch[1].rm_eo-pmatch[1].rm_so)+1, p_line+pmatch[1].rm_so);
+				tmp_pak = atoi(match_buf_pak);
+				snprintf(match_buf_ep, (pmatch[2].rm_eo-pmatch[2].rm_so)+1, p_line+pmatch[2].rm_so);
+				tmp_ep = atoi(match_buf_ep);
+				if(tmp_ep > p_refs[i].most_recent_ep) {
+					p_refs[i].most_recent_ep = tmp_ep;
+					p_refs[i].packnum = tmp_pak;
+					}
+				}
+			else {
+				}
+			regfree(&patt);
+			}
+		fclose(p_fd);
+
+		}
+
 	return list_len;
 	}
 
@@ -236,6 +282,7 @@ const char *file_name_from_url(char *url) {
 		fprintf(stderr, "invalid url (needs a file name)\n");
 		exit(1);
 		}
+	regfree(&patt);
 	return file_name;
 	}
 
@@ -298,6 +345,7 @@ void parse_conf_line(char *line) {
 		fprintf(stderr, "invalid config file\n");
 		exit(1);
 		}
+	regfree(&patt);
 	}
 
 void api_authenticate() {
