@@ -66,7 +66,8 @@ int main(void) {
 		}
 
 	/* get ncurses going */
-	int rows, cols, title_len, info_len, j, t_idx, i_idx, curr_line, select_line=0;
+	int rows, cols, title_len, info_len, j, t_idx, i_idx, curr_line,
+		select_line=0, ep_diff, bot_info;
 
 	initscr();
 	getmaxyx(stdscr, rows, cols);
@@ -74,13 +75,25 @@ int main(void) {
 	noecho();
 	keypad(stdscr, TRUE);
 	curs_set(0);
-	char str_buf[cols], tmp_buf[cols], inp, update_url[128], update_params[128];
+	char str_buf[cols], tmp_buf[cols], inp, update_url[128], update_params[128], info_buf[cols];
 
 	do {
 		curr_line = 0;
 		for(i=0; i<rows; i++) {
 			if(i<list_len) {
-				title_len = strlen(anime_list[i].title);
+				ep_diff = 0;
+				bot_info = 0;
+				for(j=0; j<p_ref_count; j++) {
+					if(strcmp(anime_list[i].id, p_refs[j].hb_id) == 0) {
+						ep_diff = p_refs[j].most_recent_ep - anime_list[i].ep_seen;
+						//p_refs[i].packnum
+						if(ep_diff) bot_info = 1;
+						}
+					}
+				if(bot_info) sprintf(info_buf, "%s *%d", anime_list[i].title, ep_diff);
+				else sprintf(info_buf, anime_list[i].title);
+
+				title_len = strlen(info_buf);
 				info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
 				if(anime_list[i].ep_total != 0) {
 					sprintf(tmp_buf, "[%d/%d]", anime_list[i].ep_seen, anime_list[i].ep_total);
@@ -95,7 +108,7 @@ int main(void) {
 					if(j < (cols-(3 + info_len))) {
 						if(j < title_len) {
 							/* insert title char */
-							str_buf[j] = anime_list[i].title[t_idx++];
+							str_buf[j] = info_buf[t_idx++];
 							}
 						else {
 							str_buf[j] = ' ';
@@ -185,7 +198,7 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 	json_object *jobj = json_tokener_parse(bw_buf);
 	enum json_type type = json_object_get_type(jobj);
 	if(type != json_type_array) {
-		fprintf(stderr, "unexpected bot watch syntax\n");
+		fprintf(stderr, "unexpected bot watch syntax\n", bw_buf);
 		exit(1);
 		}
 	int list_len = json_object_array_length(jobj);
