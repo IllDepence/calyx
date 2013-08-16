@@ -23,6 +23,7 @@ struct list_item {
 struct packs {
 	int ep_num;
 	int pack_num;
+	char line[256];
 	};
 
 struct packlist_ref {
@@ -47,6 +48,7 @@ struct bot_info {
 void show_bot_info(struct bot_info);
 int read_bot_watch_file(struct packlist_ref *buf);
 void get_bot_packlists();
+const char *strip_packlist_line(char *line);
 const char *file_name_from_url(char *url);
 int num_len(int i);
 int comp_ani(const void *v1, const void *v2);
@@ -64,7 +66,7 @@ int main(void) {
 	/* acquire xdcc packlists */
 	int p_ref_count, i;
 	struct packlist_ref pr_buf[100];
-	p_ref_count =  read_bot_watch_file(pr_buf);
+	p_ref_count = read_bot_watch_file(pr_buf);
 	struct packlist_ref p_refs[p_ref_count];
 	for(i=0; i<p_ref_count; i++) {
 		p_refs[i] = pr_buf[i];
@@ -114,7 +116,9 @@ int main(void) {
 							sprintf(curr_bot_info[curr_line].hb_title, anime_list[i].title);
 							curr_bot_info[curr_line].pak_count = p_refs[j].pak_count;
 							for(k=0; k<p_ref_count; k++) {
-								curr_bot_info[curr_line].paks[k] = p_refs[j].paks[k];
+								curr_bot_info[curr_line].paks[k].ep_num = p_refs[j].paks[k].ep_num;
+								curr_bot_info[curr_line].paks[k].pack_num = p_refs[j].paks[k].pack_num;
+								sprintf(curr_bot_info[curr_line].paks[k].line, p_refs[j].paks[k].line);
 								}
 							}
 						}
@@ -228,10 +232,12 @@ void clean_screen() {
 
 void show_bot_info(struct bot_info curr_bot_info) {
 	clean_screen();
-	int i;
+	int i, l=0;
 	for(i=0; i<curr_bot_info.pak_count; i++) {
-		mvprintw(i, 0, "[%s] %s %d: #%d", curr_bot_info.subgroup, curr_bot_info.hb_title,
+		mvprintw(l, 0, "[%s] %s %d: #%d", curr_bot_info.subgroup, curr_bot_info.hb_title,
 			curr_bot_info.paks[i].ep_num, curr_bot_info.paks[i].pack_num);
+		mvprintw(l+1, 0, "%s", curr_bot_info.paks[i].line); // - - - SEGFAULT
+		l+=2;
 		}
 	refresh();
 	getch();
@@ -290,7 +296,7 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 		api_request(urls[i], 0, 1, "", (char*) file_name_from_url(urls[i]));
 		}
 
-	/* gather information */
+	/* for each bot watch entry */
 	for(i=0; i<list_len; i++) {
 		int pak_count = 0;
 		FILE *p_fd;
@@ -298,7 +304,7 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 		char p_line[512];
 		int x, tmp_pak, tmp_ep;
 		p_refs[i].latest_ep_num = 0;
-		while(fgets(p_line, sizeof(p_line), p_fd)) {
+		while(fgets(p_line, sizeof(p_line), p_fd)) { /* check all lines of the respective packlist */
 			/* initialize regex stuff */
 			regex_t patt;
 			size_t nmatch = 3;
@@ -320,17 +326,44 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 				if(tmp_ep > p_refs[i].latest_ep_num) p_refs[i].latest_ep_num = tmp_ep;
 				p_refs[i].paks[pak_count-1].ep_num = tmp_ep;
 				p_refs[i].paks[pak_count-1].pack_num = tmp_pak;
+				sprintf(p_refs[i].paks[pak_count-1].line, strip_packlist_line(p_line));
 				}
 			else {
 				}
 			regfree(&patt);
 			}
+		int j;
 		p_refs[i].pak_count = pak_count;
 		fclose(p_fd);
 
 		}
 
 	return list_len;
+	}
+
+const char *strip_packlist_line(char *line) {
+	/* initialize stuff */
+	int x, i;
+	static char stripped_line[512] = "";
+	regex_t patt;
+	size_t nmatch = 2;
+	regmatch_t pmatch[2];
+	char patt_str[] = "(.+)\\s+$";
+	/* apply regex pattern */
+	if(regcomp(&patt, patt_str, REG_EXTENDED) != 0) {
+		perror("regcomp");
+		exit(1);
+		}
+	x = regexec(&patt, line, nmatch, pmatch, 0);
+	if(!x) {
+		snprintf(stripped_line, (pmatch[1].rm_eo-pmatch[1].rm_so)+1, line+pmatch[1].rm_so);
+		}
+	else {
+		fprintf(stderr, "strip_packline_line failed\n");
+		exit(1);
+		}
+	regfree(&patt);
+	return stripped_line;
 	}
 
 const char *file_name_from_url(char *url) {
