@@ -433,13 +433,13 @@ char *api_request(char *url, int r_meth, int s_meth, char *params, char *fname) 
 	CURL *curl_handle = NULL;
 	char *response;
 	char *header_part = "X-Mashape-Authorization: ";
-	int i, n = (strlen(header_part) + strlen(API_KEY));
+	int i, n = (strlen(header_part) + 32); /* 32 for API_KEY */
 	char header[n];
 	for(i=0; i<n; i++) {
 		header[i] = '\0';
 		}
 	strcat(header, header_part);
-	strcat(header, API_KEY);
+	strncat(header, API_KEY, 32); /* API_KEY may contain random stuff after the 32nd character */
 	
 	curl_handle = curl_easy_init();
 
