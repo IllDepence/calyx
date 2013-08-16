@@ -23,7 +23,7 @@ struct list_item {
 struct packs {
 	int ep_num;
 	int pack_num;
-	char line[256];
+	char line[512];
 	};
 
 struct packlist_ref {
@@ -33,19 +33,19 @@ struct packlist_ref {
 	char subgroup[32];
 	int latest_ep_num;
 	int pak_count;
-	struct packs paks[128];
+	struct packs paks[64];
 	};
 
 struct bot_info {
-	int pack_num;
-	int ep_num;
 	char subgroup[32];
 	char hb_title[128];
+	int ep_seen;
 	int pak_count;
-	struct packs paks[128];
+	struct packs paks[64];
 	};
 
-void show_bot_info(struct bot_info);
+void clean_screen();
+void show_bot_info(struct bot_info, int mode);
 int read_bot_watch_file(struct packlist_ref *buf);
 void get_bot_packlists();
 const char *strip_packlist_line(char *line);
@@ -115,7 +115,8 @@ int main(void) {
 							sprintf(curr_bot_info[curr_line].subgroup, p_refs[j].subgroup);
 							sprintf(curr_bot_info[curr_line].hb_title, anime_list[i].title);
 							curr_bot_info[curr_line].pak_count = p_refs[j].pak_count;
-							for(k=0; k<p_ref_count; k++) {
+							curr_bot_info[curr_line].ep_seen = anime_list[i].ep_seen;
+							for(k=0; k<p_refs[j].pak_count; k++) {
 								curr_bot_info[curr_line].paks[k].ep_num = p_refs[j].paks[k].ep_num;
 								curr_bot_info[curr_line].paks[k].pack_num = p_refs[j].paks[k].pack_num;
 								sprintf(curr_bot_info[curr_line].paks[k].line, p_refs[j].paks[k].line);
@@ -190,7 +191,7 @@ int main(void) {
 				break;
 			case 's':
 				if(has_bot_info[select_line]) {
-					show_bot_info(curr_bot_info[select_line]);
+					show_bot_info(curr_bot_info[select_line], 0);
 					}
 				break;
 			default:
@@ -230,17 +231,32 @@ void clean_screen() {
 	refresh();
 	}
 
-void show_bot_info(struct bot_info curr_bot_info) {
+void show_bot_info(struct bot_info curr_bot_info, int mode) {
 	clean_screen();
-	int i, l=0;
+	int i, j, rows, cols, curr_row, curr_col;
+	char inp;
+	getmaxyx(stdscr, rows, cols);
 	for(i=0; i<curr_bot_info.pak_count; i++) {
-		mvprintw(l, 0, "[%s] %s %d: #%d", curr_bot_info.subgroup, curr_bot_info.hb_title,
-			curr_bot_info.paks[i].ep_num, curr_bot_info.paks[i].pack_num);
-		mvprintw(l+1, 0, "%s", curr_bot_info.paks[i].line); // - - - SEGFAULT
-		l+=2;
+		if(curr_bot_info.paks[i].ep_num > curr_bot_info.ep_seen) attron(A_STANDOUT);
+		if(mode) {
+			mvprintw(i, 0, "%s", curr_bot_info.paks[i].line);
+			}
+		else {
+			mvprintw(i, 0, "%d -> [%s] %s %d", curr_bot_info.paks[i].pack_num, curr_bot_info.subgroup,
+				curr_bot_info.hb_title, curr_bot_info.paks[i].ep_num);
+			}
+		getyx(stdscr, curr_row, curr_col);
+		for(j=curr_col; j<cols; j++) {
+			mvprintw(i, j, " ");
+			}
+		if(curr_bot_info.paks[i].ep_num > curr_bot_info.ep_seen) attroff(A_STANDOUT);
 		}
 	refresh();
-	getch();
+	inp = getch();
+	clean_screen();
+	if(inp == 'c') {
+		show_bot_info(curr_bot_info, 1-mode);
+		}
 	}
 
 int read_bot_watch_file(struct packlist_ref *p_refs) {
@@ -327,15 +343,14 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 				p_refs[i].paks[pak_count-1].ep_num = tmp_ep;
 				p_refs[i].paks[pak_count-1].pack_num = tmp_pak;
 				sprintf(p_refs[i].paks[pak_count-1].line, strip_packlist_line(p_line));
+				//printf("[%d][%d] %s\n", i, (pak_count-1), strip_packlist_line(p_line));
 				}
 			else {
 				}
 			regfree(&patt);
 			}
-		int j;
 		p_refs[i].pak_count = pak_count;
 		fclose(p_fd);
-
 		}
 
 	return list_len;
