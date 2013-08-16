@@ -20,20 +20,28 @@ struct list_item {
 	int ep_total;
 	};
 
+struct packs {
+	int ep_num;
+	int pack_num;
+	};
+
 struct packlist_ref {
 	char hb_id[128];
 	char packlist_title[128];
 	char packlist_file_name[128];
 	char subgroup[32];
-	int most_recent_ep;
-	int packnum;
+	int latest_ep_num;
+	int pak_count;
+	struct packs paks[128];
 	};
 
 struct bot_info {
 	int pack_num;
-	int most_recent_ep;
+	int ep_num;
 	char subgroup[32];
 	char hb_title[128];
+	int pak_count;
+	struct packs paks[128];
 	};
 
 void show_bot_info(struct bot_info);
@@ -74,8 +82,8 @@ int main(void) {
 		}
 
 	/* get ncurses going */
-	int rows, cols, title_len, info_len, j, t_idx, i_idx, curr_line,
-		select_line=0, ep_diff, bot_info;
+	int rows, cols, title_len, info_len, j, k, t_idx, i_idx, curr_line,
+		select_line=0, ep_diff, bot_inf;
 
 	initscr();
 	getmaxyx(stdscr, rows, cols);
@@ -95,21 +103,23 @@ int main(void) {
 		for(i=0; i<rows; i++) {
 			if(i<list_len) {
 				ep_diff = 0;
-				bot_info = 0;
+				bot_inf = 0;
 				for(j=0; j<p_ref_count; j++) {
 					if(strcmp(anime_list[i].id, p_refs[j].hb_id) == 0) {
-						ep_diff = p_refs[j].most_recent_ep - anime_list[i].ep_seen;
+						ep_diff = p_refs[j].latest_ep_num - anime_list[i].ep_seen;
 						if(ep_diff) {
-							bot_info = 1;
+							bot_inf = 1;
 							has_bot_info[i] = 1;
-							curr_bot_info[curr_line].pack_num = p_refs[j].packnum;
-							curr_bot_info[curr_line].most_recent_ep = p_refs[j].most_recent_ep;
 							sprintf(curr_bot_info[curr_line].subgroup, p_refs[j].subgroup);
 							sprintf(curr_bot_info[curr_line].hb_title, anime_list[i].title);
+							curr_bot_info[curr_line].pak_count = p_refs[j].pak_count;
+							for(k=0; k<p_ref_count; k++) {
+								curr_bot_info[curr_line].paks[k] = p_refs[j].paks[k];
+								}
 							}
 						}
 					}
-				if(bot_info) sprintf(info_buf, "%s *%d", anime_list[i].title, ep_diff); /* unseen eps */
+				if(bot_inf) sprintf(info_buf, "%s *%d", anime_list[i].title, ep_diff); /* unseen eps */
 				else sprintf(info_buf, anime_list[i].title); /* no unseen eps */
 
 				title_len = strlen(info_buf);
@@ -218,8 +228,11 @@ void clean_screen() {
 
 void show_bot_info(struct bot_info curr_bot_info) {
 	clean_screen();
-	mvprintw(0, 0, "[%s] %s %d: #%d", curr_bot_info.subgroup, curr_bot_info.hb_title,
-		curr_bot_info.most_recent_ep, curr_bot_info.pack_num);
+	int i;
+	for(i=0; i<curr_bot_info.pak_count; i++) {
+		mvprintw(i, 0, "[%s] %s %d: #%d", curr_bot_info.subgroup, curr_bot_info.hb_title,
+			curr_bot_info.paks[i].ep_num, curr_bot_info.paks[i].pack_num);
+		}
 	refresh();
 	getch();
 	}
@@ -279,12 +292,12 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 
 	/* gather information */
 	for(i=0; i<list_len; i++) {
+		int pak_count = 0;
 		FILE *p_fd;
 		p_fd = fopen(p_refs[i].packlist_file_name, "r");
 		char p_line[512];
 		int x, tmp_pak, tmp_ep;
-		p_refs[i].most_recent_ep = 0;
-		p_refs[i].packnum = 0;
+		p_refs[i].latest_ep_num = 0;
 		while(fgets(p_line, sizeof(p_line), p_fd)) {
 			/* initialize regex stuff */
 			regex_t patt;
@@ -299,19 +312,20 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 				}
 			x = regexec(&patt, p_line, nmatch, pmatch, 0);
 			if(!x) {
+				pak_count++;
 				snprintf(match_buf_pak, (pmatch[1].rm_eo-pmatch[1].rm_so)+1, p_line+pmatch[1].rm_so);
 				tmp_pak = atoi(match_buf_pak);
 				snprintf(match_buf_ep, (pmatch[2].rm_eo-pmatch[2].rm_so)+1, p_line+pmatch[2].rm_so);
 				tmp_ep = atoi(match_buf_ep);
-				if(tmp_ep > p_refs[i].most_recent_ep) {
-					p_refs[i].most_recent_ep = tmp_ep;
-					p_refs[i].packnum = tmp_pak;
-					}
+				if(tmp_ep > p_refs[i].latest_ep_num) p_refs[i].latest_ep_num = tmp_ep;
+				p_refs[i].paks[pak_count-1].ep_num = tmp_ep;
+				p_refs[i].paks[pak_count-1].pack_num = tmp_pak;
 				}
 			else {
 				}
 			regfree(&patt);
 			}
+		p_refs[i].pak_count = pak_count;
 		fclose(p_fd);
 
 		}

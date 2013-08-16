@@ -13,16 +13,13 @@ usage
 -----
 * **j** -> down
 * **k** -> up
-* **s** -> if available, show packlist info
 * **l** -> increase watched episodes count by one
 * **h** -> decrease watched episodes count by one
+* **s** -> if available, show packlist info
 * **q** -> quit
 
-status
-------
-basic functionality implemented
-
-todo: 
+todo
+----
 * MAKEFILE
 * cyclic refresh (botwatch)
 * list scrolling
