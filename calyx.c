@@ -29,6 +29,14 @@ struct packlist_ref {
 	int packnum;
 	};
 
+struct bot_info {
+	int pack_num;
+	int most_recent_ep;
+	char subgroup[32];
+	char hb_title[128];
+	};
+
+void show_bot_info(struct bot_info);
 int read_bot_watch_file(struct packlist_ref *buf);
 void get_bot_packlists();
 const char *file_name_from_url(char *url);
@@ -75,7 +83,12 @@ int main(void) {
 	noecho();
 	keypad(stdscr, TRUE);
 	curs_set(0);
-	char str_buf[cols], tmp_buf[cols], inp, update_url[128], update_params[128], info_buf[cols];
+	char str_buf[cols+1], tmp_buf[cols], inp, update_url[128], update_params[128], info_buf[cols];
+	int has_bot_info[rows];
+	for(i=0; i<rows; i++) {
+		has_bot_info[i] = 0;
+		}
+	struct bot_info curr_bot_info[rows];
 
 	do {
 		curr_line = 0;
@@ -86,12 +99,18 @@ int main(void) {
 				for(j=0; j<p_ref_count; j++) {
 					if(strcmp(anime_list[i].id, p_refs[j].hb_id) == 0) {
 						ep_diff = p_refs[j].most_recent_ep - anime_list[i].ep_seen;
-						//p_refs[i].packnum
-						if(ep_diff) bot_info = 1;
+						if(ep_diff) {
+							bot_info = 1;
+							has_bot_info[i] = 1;
+							curr_bot_info[curr_line].pack_num = p_refs[j].packnum;
+							curr_bot_info[curr_line].most_recent_ep = p_refs[j].most_recent_ep;
+							sprintf(curr_bot_info[curr_line].subgroup, p_refs[j].subgroup);
+							sprintf(curr_bot_info[curr_line].hb_title, anime_list[i].title);
+							}
 						}
 					}
-				if(bot_info) sprintf(info_buf, "%s *%d", anime_list[i].title, ep_diff);
-				else sprintf(info_buf, anime_list[i].title);
+				if(bot_info) sprintf(info_buf, "%s *%d", anime_list[i].title, ep_diff); /* unseen eps */
+				else sprintf(info_buf, anime_list[i].title); /* no unseen eps */
 
 				title_len = strlen(info_buf);
 				info_len = 3 + num_len(anime_list[i].ep_seen) + num_len(anime_list[i].ep_total);
@@ -125,6 +144,7 @@ int main(void) {
 						}
 					}
 				if(curr_line == select_line) attron(A_STANDOUT);
+				str_buf[cols] = '\0'; /* apparently strings in C can get larger than the char array itself?! therefore we cut off here*/
 				mvprintw(i, 0, str_buf);
 				if(curr_line == select_line) attroff(A_STANDOUT);
 				curr_line++;
@@ -154,6 +174,11 @@ int main(void) {
 				list_update = 1;
 				delta = -1;
 				break;
+			case 's':
+				if(has_bot_info[select_line]) {
+					show_bot_info(curr_bot_info[select_line]);
+					}
+				break;
 			default:
 				break;
 			}
@@ -176,6 +201,27 @@ int main(void) {
 	endwin();
 
 	return 0;
+	}
+
+void clean_screen() {
+	int i, j, rows, cols;
+	getmaxyx(stdscr, rows, cols);
+	char str_buf[cols];
+	for(i=0; i<rows; i++) {
+		for(j=0; j<cols; j++) {
+			str_buf[j] = ' ';
+			}
+		mvprintw(i, 0, str_buf);
+		}
+	refresh();
+	}
+
+void show_bot_info(struct bot_info curr_bot_info) {
+	clean_screen();
+	mvprintw(0, 0, "[%s] %s %d: #%d", curr_bot_info.subgroup, curr_bot_info.hb_title,
+		curr_bot_info.most_recent_ep, curr_bot_info.pack_num);
+	refresh();
+	getch();
 	}
 
 int read_bot_watch_file(struct packlist_ref *p_refs) {
@@ -245,7 +291,6 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 			size_t nmatch = 3;
 			regmatch_t pmatch[3];
 			char patt_str[256], match_buf_pak[16], match_buf_ep[16];
-			//sprintf(patt_str, "^#(\\d+).+?\\[%s].+?%s.+?(\\d+)", p_refs[i].subgroup, p_refs[i].packlist_title);
 			sprintf(patt_str, "^#([0-9]+).+?\\[%s].+?%s[^\\[\\(0-9]+?([0-9]+)", p_refs[i].subgroup, p_refs[i].packlist_title);
 			/* apply regex pattern */
 			if(regcomp(&patt, patt_str, REG_EXTENDED) != 0) {

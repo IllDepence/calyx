@@ -13,6 +13,7 @@ usage
 -----
 * **j** -> down
 * **k** -> up
+* **s** -> if available, show packlist info
 * **l** -> increase watched episodes count by one
 * **h** -> decrease watched episodes count by one
 * **q** -> quit
@@ -22,7 +23,8 @@ status
 basic functionality implemented
 
 todo: 
-* xdcc bot "integration"
+* MAKEFILE
+* cyclic refresh (botwatch)
 * list scrolling
 * indication of blocking procedures (api requests)
 
