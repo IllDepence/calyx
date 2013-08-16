@@ -46,7 +46,8 @@ struct bot_info {
 
 void clean_screen();
 void show_bot_info(struct bot_info, int mode);
-int read_bot_watch_file(struct packlist_ref *buf);
+int get_bot_watch_count();
+void read_bot_watch_file(struct packlist_ref *p_refs);
 void get_bot_packlists();
 const char *strip_packlist_line(char *line);
 const char *file_name_from_url(char *url);
@@ -64,13 +65,9 @@ int main(void) {
 	API_KEY = get_api_key();
 
 	/* acquire xdcc packlists */
-	int p_ref_count, i;
-	struct packlist_ref pr_buf[100];
-	p_ref_count = read_bot_watch_file(pr_buf);
+	int p_ref_count = get_bot_watch_count();
 	struct packlist_ref p_refs[p_ref_count];
-	for(i=0; i<p_ref_count; i++) {
-		p_refs[i] = pr_buf[i];
-		}
+	read_bot_watch_file(p_refs);
 
 	/* acquire hb anime list */
 	read_conf_file();
@@ -79,6 +76,7 @@ int main(void) {
 	struct list_item anime_buf[100];
 	int list_len = get_c_list(anime_buf);
 	struct list_item anime_list[list_len];
+	int i;
 	for(i=0; i<list_len; i++) {
 		anime_list[i] = anime_buf[i];
 		}
@@ -194,6 +192,9 @@ int main(void) {
 					show_bot_info(curr_bot_info[select_line], 0);
 					}
 				break;
+			case 'r':
+				/* acquire new xdcc packlists */
+				read_bot_watch_file(p_refs);
 			default:
 				break;
 			}
@@ -259,7 +260,33 @@ void show_bot_info(struct bot_info curr_bot_info, int mode) {
 		}
 	}
 
-int read_bot_watch_file(struct packlist_ref *p_refs) {
+int get_bot_watch_count() {
+	/* get file size */
+	struct stat stat_buf;
+	stat("bot_watch.json", &stat_buf);
+	long f_size = (long) stat_buf.st_size;
+
+	/* read whole json file in bw_buf */
+	FILE *bw_fd;
+	char bw_buf[f_size];
+	if((bw_fd = fopen("bot_watch.json", "r")) == NULL) {
+		perror("fopen");
+		exit(1);
+		}
+	fread(bw_buf, sizeof(char), f_size, bw_fd);
+	fclose(bw_fd);
+
+	/* parse json */
+	json_object *jobj = json_tokener_parse(bw_buf);
+	enum json_type type = json_object_get_type(jobj);
+	if(type != json_type_array) {
+		fprintf(stderr, "unexpected bot watch syntax\n", bw_buf);
+		exit(1);
+		}
+	return json_object_array_length(jobj);
+	}
+
+void read_bot_watch_file(struct packlist_ref *p_refs) {
 	/* get file size */
 	struct stat stat_buf;
 	stat("bot_watch.json", &stat_buf);
@@ -352,8 +379,6 @@ int read_bot_watch_file(struct packlist_ref *p_refs) {
 		p_refs[i].pak_count = pak_count;
 		fclose(p_fd);
 		}
-
-	return list_len;
 	}
 
 const char *strip_packlist_line(char *line) {

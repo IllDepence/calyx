@@ -17,6 +17,7 @@ usage
 * **h** -> decrease watched episodes count by one
 * **s** -> if available, show packlist info
 * **c** -> change show packlist info display mode
+* **r** -> refresh bot lists
 * **q** -> quit
 
 todo
