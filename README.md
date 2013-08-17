@@ -2,6 +2,15 @@ calyx
 =====
 the beautiful thing to nourish your hummingbird :)
 
+![alt text](http://moc.sirtetris.com/calyx0.jpg "calyx")
+
+features
+--------
+* view your hummingbird.me currently-watching list
+* change number of watched episodes
+* integration of xdcc bot packlists
+* display filtered packlist or raw packlist lines
+
 setup
 -----
 * compile: gcc -o calyx calyx.c aux.o -lcurl -ljson-c -lncurses
@@ -26,6 +35,7 @@ todo
 * cyclic refresh (botwatch)
 * list scrolling
 * indication of blocking procedures (api requests)
+* display of list other than currenly watching
 
 note
 ----
