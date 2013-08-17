@@ -2,7 +2,7 @@ calyx
 =====
 the beautiful thing to nourish your hummingbird :)
 
-![alt text](http://moc.sirtetris.com/calyx0.jpg "calyx")
+![alt text](http://moc.sirtetris.com/calyx.gif "calyx")
 
 features
 --------
@@ -20,12 +20,12 @@ setup
 
 usage
 -----
-* **j** -> down
-* **k** -> up
+* **k** -> navigate up
+* **j** -> navigate down
 * **l** -> increase watched episodes count by one
 * **h** -> decrease watched episodes count by one
 * **s** -> if available, show packlist info
-* **c** -> change show packlist info display mode
+* **c** -> change packlist info display mode
 * **r** -> refresh bot lists
 * **q** -> quit
 
@@ -35,7 +35,7 @@ todo
 * cyclic refresh (botwatch)
 * list scrolling
 * indication of blocking procedures (api requests)
-* display of list other than currenly watching
+* display of lists other than currenly watching
 
 note
 ----
