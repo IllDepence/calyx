@@ -14,7 +14,7 @@ features
 setup
 -----
 * compile: gcc -o calyx calyx.c aux.o -lcurl -ljson-c -lncurses
-* create file calyx.cfg (see example)
+* create file calyx.conf (see example)
 * adjust file bot\_watch.json
 * launch
 
