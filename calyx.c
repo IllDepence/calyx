@@ -201,8 +201,14 @@ int main(void) {
 		if(list_update) {
 			/* send update api request */
 			sprintf(update_url, "https://hummingbirdv1.p.mashape.com/libraries/%s", anime_list[select_line].id);
-			sprintf(update_params, "anime_id=%s&auth_token=%s&episodes_watched=%d", anime_list[select_line].id,
-				AUTH, (anime_list[select_line].ep_seen+delta));
+			if(delta == 1) { /* this seems unnecessary but HB won't show updates in activity feed otherwise */
+				sprintf(update_params, "anime_id=%s&auth_token=%s&increment_episodes=true",
+					anime_list[select_line].id, AUTH);
+				}
+			else {
+				sprintf(update_params, "anime_id=%s&auth_token=%s&episodes_watched=%d", anime_list[select_line].id,
+					AUTH, (anime_list[select_line].ep_seen+delta));
+				}
 			api_request(update_url, 1, 0, update_params, "");
 			/* get updated list */
 			api_get_json_list();
