@@ -13,7 +13,7 @@ features
 
 setup
 -----
-* compile: gcc -o calyx calyx.c aux.o -lcurl -ljson-c -lncurses
+* compile: gcc -o calyx calyx.c -lcurl -ljson-c -lncurses
 * create file calyx.conf (see example)
 * adjust file bot\_watch.json
 * launch
@@ -37,6 +37,7 @@ todo
 * indication of blocking procedures (api requests)
 * display of lists other than currenly watching
 
-note
-----
-This is the first piece of software I write in C, so the code will most likely suck, A LOT.
+notes
+-----
+* This is the first piece of software I wrote in C, so the code will most likely suck, A LOT.
+* As soon as AniList gets it's API I'll create a similar ncurses client — this time in Python.

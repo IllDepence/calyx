@@ -1,6 +1,5 @@
-#include "calyx.h" 
 #include <curl/curl.h>
-#include <json/json.h>
+#include <json-c/json.h>
 #include <ncurses.h>
 #include <regex.h>
 #include <stdio.h>
@@ -49,6 +48,7 @@ void show_bot_info(struct bot_info, int mode);
 int get_bot_watch_count();
 void read_bot_watch_file(struct packlist_ref *p_refs);
 void get_bot_packlists();
+const char *get_api_key();
 const char *strip_packlist_line(char *line);
 const char *file_name_from_url(char *url);
 int num_len(int i);
@@ -412,6 +412,27 @@ const char *strip_packlist_line(char *line) {
         }
     regfree(&patt);
     return stripped_line;
+    }
+
+const char *get_api_key() {
+    /* dat obfuscation lol */
+    static char api_key[32] = "iTRw";
+    char a[4] = "OaoL";
+    char b[4] = "hIiD";
+    char c[4] = "98s3";
+    char d[4] = "fCXi";
+    char e[4] = "HXg0";
+    char f[4] = "w9rI";
+    strcat(api_key, "3QEx");
+    strcat(api_key, "1rtD");
+    strcat(api_key, "LkPd");
+    strcat(api_key, "fuP1");
+    strcat(api_key, "v2V6");
+    strcat(api_key, "xcKY");
+    strcat(api_key, "Wldi");
+    api_key[9] = d[2];
+    api_key[11] = b[2];
+    return api_key;
     }
 
 const char *file_name_from_url(char *url) {
